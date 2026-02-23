@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Life in Portraits</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Courier+Prime&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0c0a;
+      --paper: #f0ebe1;
+      --ink: #1a1612;
+      --sepia: #8b7355;
+      --accent: #c9a96e;
+      --frame: #2a2420;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--paper);
+      font-family: 'Courier Prime', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* Grain overlay for vintage feel */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.4;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      color: var(--paper);
+      line-height: 1.1;
+    }
+
+    header p {
+      color: var(--paper);
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+    }
+
+    /* ── Main frame ── */
+    .stage {
+      position: relative;
+      width: 600px;
+      height: 600px;
+      max-width: 90vw;
+      max-height: 90vw;
+    }
+
+    /* Decorative corner marks */
+    .stage::before, .stage::after,
+    .corner-bl, .corner-br {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: var(--accent);
+      border-style: solid;
+      z-index: 10;
+    }
+    .stage::before  { top: -6px;    left: -6px;    border-width: 2px 0 0 2px; }
+    .stage::after   { top: -6px;    right: -6px;   border-width: 2px 2px 0 0; }
+    .corner-bl      { bottom: -6px; left: -6px;    border-width: 0 0 2px 2px; }
+    .corner-br      { bottom: -6px; right: -6px;   border-width: 0 2px 2px 0; }
+
+    .photo-frame {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--frame);
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 1.2s ease-in-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slide.active { opacity: 1; }
+
+    .slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      filter: grayscale(100%) contrast(1.05) brightness(0.97);
+      display: block;
+    }
+
+    /* Year badge */
+    .slide .year-badge {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(14, 12, 10, 0.72);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      padding: 4px 10px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* Caption below photo */
+    .caption-bar {
+      margin-top: 1.2rem;
+      text-align: center;
+      min-height: 3rem;
+    }
+
+    .caption-bar .caption-text {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      color: var(--paper);
+      font-size: 0.95rem;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .caption-bar .caption-text.visible { opacity: 1; }
+
+    /* ── Progress strip ── */
+    .progress-strip {
+      display: flex;
+      gap: 6px;
+      margin-top: 1.6rem;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 600px;
+    }
+
+    .pip {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--frame);
+      border: 1px solid var(--sepia);
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    .pip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      transform: scale(1.4);
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 1.8rem;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--sepia);
+      color: var(--paper);
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.5rem 1.2rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    .btn:hover, .btn.active-btn {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-nav {
+      font-size: 1.1rem;
+      padding: 0.5rem 0.9rem;
+      letter-spacing: 0;
+    }
+
+    /* Speed indicator */
+    .speed-label {
+      color: var(-- paper);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+    }
+
+    /* Timeline bar */
+    .timeline {
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 600px;
+      height: 2px;
+      background: var(--frame);
+      position: relative;
+    }
+
+    .timeline-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--paper), var(--accent));
+      transition: width 0.4s ease;
+    }
+
+    footer {
+      margin-top: 2.5rem;
+      color: var(--paper);
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      /* Adjust or remove this line */
+      color: #f0ebe1;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>A Life in Portraits</h1>
+    <!-- Edit the subtitle below -->
+    <p>Thomas Patrick "Pat" McDonnell &nbsp;&bull;&nbsp; 1949 &ndash; Present</p>
+  </header>
+
+  <div class="stage">
+    <div class="corner-bl"></div>
+    <div class="corner-br"></div>
+
+    <div class="photo-frame" id="photoFrame">
+
+      <!--
+        =====================================================
+        HOW TO ADD YOUR PHOTOS:
+        1. Put all your photos in the same folder as this
+           HTML file (or a subfolder, e.g. "photos/")
+        2. Copy/paste the <div class="slide"> block below
+           for each photo.
+        3. Update src="photo1.jpg" with your filename.
+        4. Update the year in the .year-badge span.
+        5. Update the caption text.
+        The first slide should have class="slide active"
+        All others just class="slide"
+        =====================================================
+      -->
+
+      <div class="slide" data-caption="Age 77 &mdash; Bathrooms Have The Best Light">
+        <img src="PatAge77.jpg" alt="Portrait 2026">
+        <span class="year-badge">2026</span>
+      </div>
+
+      <div class="slide" data-caption="Age 76 &mdash; On The Cabin Front Porch">
+        <img src="PatAge76.jpg" alt="Portrait 2025">
+        <span class="year-badge">2025</span>
+      </div>
+
+      <div class="slide" data-caption="Age 75 &mdash; Long Hair Period">
+        <img src="PatAge75.jpg" alt="Portrait 2023">
+        <span class="year-badge">2023</span>
+      </div>
+
+      <div class="slide" data-caption="Age 74 &mdash; Pat At Cabin">
+        <img src="PatAge74.jpg" alt="Portrait 2022">
+        <span class="year-badge">2022</span>
+      </div>
+
+     <div class="slide" data-caption="Age 73 &mdash; Reynolds Family Portrait">
+        <img src="PatAge73(2).jpg" alt="Portrait 2021">
+        <span class="year-badge">2021</span>
+      </div> 
+
+     <div class="slide" data-caption="Age 73 &mdash; Passport Photo">
+        <img src="PatAge73.jpg" alt="Portrait 2021">
+        <span class="year-badge">2021</span>
+      </div> 
+
+     <div class="slide" data-caption="Age 71 &mdash; On Tylicki Patio">
+        <img src="PatAge71.jpg" alt="Portrait 2019">
+        <span class="year-badge">2019</span>
+      </div>
+
+     <div class="slide" data-caption="Age 71 &mdash; At Bill's House">
+        <img src="PatAge71(2).jpg" alt="Portrait 2019">
+        <span class="year-badge">2019</span>
+      </div>
+
+     <div class="slide" data-caption="Age 69 &mdash; At Frank's House">
+        <img src="PatAge69.jpg" alt="Portrait 2017">
+        <span class="year-badge">2017</span>
+      </div>
+
+     <div class="slide" data-caption="Age 68 &mdash; From CI History Video">
+        <img src="PatAge68.jpg" alt="Portrait 2016">
+        <span class="year-badge">2016</span>
+      </div>
+
+     <div class="slide" data-caption="Age 61 &mdash; Front Porch Snapshot">
+        <img src="PatAge61.jpg" alt="Portrait 2010">
+        <span class="year-badge">2010</span>
+      </div>
+
+      <div class="slide" data-caption="Age 60 &mdash; Somewhere Snapshot">
+        <img src="PatAge60.jpg" alt="Portrait 2009">
+        <span class="year-badge">2009</span>
+      </div>
+
+      <div class="slide" data-caption="Age 57 &mdash; Passport Photo">
+        <img src="PatAge57.jpg" alt="Portrait 2006">
+        <span class="year-badge">2006</span>
+      </div>
+
+      <div class="slide" data-caption="Age 56 &mdash; Office Snapshot">
+        <img src="PatAge56.jpg" alt="Portrait 2005">
+        <span class="year-badge">2005</span>
+      </div>
+
+      <div class="slide" data-caption="Age 47 &mdash; Office Snapshot">
+        <img src="PatAge47.jpg" alt="Portrait 1996">
+        <span class="year-badge">1996</span>
+      </div>
+
+      <div class="slide" data-caption="Age 47 &mdash; Driver's License Photo">
+        <img src="PatAge47(2).jpg" alt="Portrait 1996">
+        <span class="year-badge">1996</span>
+      </div>
+
+      <div class="slide" data-caption="Age 41 &mdash; Passport Photo">
+        <img src="PatAge41.jpg" alt="Portrait 1990">
+        <span class="year-badge">1990</span>
+      </div>
+
+      <div class="slide" data-caption="Age 31 &mdash; Passport Photo">
+        <img src="PatAge31.jpg" alt="Portrait 1980">
+        <span class="year-badge">1980</span>
+      </div>
+
+      <div class="slide" data-caption="Age 21 &mdash; Passport Photo">
+        <img src="PatAge21.jpg" alt="Portrait 1969">
+        <span class="year-badge">1969</span>
+      </div>
+
+     <div class="slide" data-caption="Age 19 &mdash; Family Portrait">
+        <img src="PatAge19.jpg" alt="Portrait 1967">
+        <span class="year-badge">1967</span>
+      </div>
+
+      <div class="slide" data-caption="Age 15 &mdash; Class Photo">
+        <img src="PatAge15.jpg" alt="Portrait 1963">
+        <span class="year-badge">1963</span>
+      </div>
+<!--
+      <div class="slide" data-caption="Age 22 &mdash; College graduation">
+        <img src="photo3.jpg" alt="Portrait 1979">
+        <span class="year-badge">1979</span>
+      </div>
+
+      <div class="slide" data-caption="Age 35 &mdash; Passport renewal">
+        <img src="photo4.jpg" alt="Portrait 1992">
+        <span class="year-badge">1992</span>
+      </div>
+
+      <div class="slide" data-caption="Age 50 &mdash; Office portrait">
+        <img src="photo5.jpg" alt="Portrait 2007">
+        <span class="year-badge">2007</span>
+      </div>
+-->
+      <!-- Add more slides here following the same pattern -->
+
+    </div><!-- /photo-frame -->
+  </div><!-- /stage -->
+
+  <div class="caption-bar">
+    <span class="caption-text" id="captionText"></span>
+  </div>
+
+  <div class="progress-strip" id="progressStrip"></div>
+
+  <div class="timeline">
+    <div class="timeline-fill" id="timelineFill"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-nav" id="btnPrev" title="Previous">&#8592;</button>
+    <button class="btn" id="btnPlayPause">Play</button>
+    <button class="btn btn-nav" id="btnNext" title="Next">&#8594;</button>
+    <span class="speed-label" id="speedLabel">3 s</span>
+    <button class="btn" id="btnSlower">Slower</button>
+    <button class="btn" id="btnFaster">Faster</button>
+  </div>
+
+  <footer>Each face, a chapter &nbsp;&mdash;&nbsp; assembled here</footer>
+
+<script>
+  const slides       = Array.from(document.querySelectorAll('.slide'));
+  const captionEl    = document.getElementById('captionText');
+  const strip        = document.getElementById('progressStrip');
+  const fill         = document.getElementById('timelineFill');
+  const btnPlay      = document.getElementById('btnPlayPause');
+  const btnPrev      = document.getElementById('btnPrev');
+  const btnNext      = document.getElementById('btnNext');
+  const btnSlower    = document.getElementById('btnSlower');
+  const btnFaster    = document.getElementById('btnFaster');
+  const speedLabel   = document.getElementById('speedLabel');
+
+  let current   = 0;
+  let playing   = false;
+  let timer     = null;
+  let interval  = 3000; // ms per slide
+  const speeds  = [1500, 2000, 3000, 4000, 6000];
+  let speedIdx  = 2; // default: 3 s
+
+  // Build pip navigation
+  slides.forEach((_, i) => {
+    const pip = document.createElement('button');
+    pip.className = 'pip' + (i === 0 ? ' active' : '');
+    pip.setAttribute('aria-label', 'Go to photo ' + (i + 1));
+    pip.addEventListener('click', () => { goTo(i); pausePlay(); });
+    strip.appendChild(pip);
+  });
+
+  function getPips() { return Array.from(strip.querySelectorAll('.pip')); }
+
+  function goTo(idx) {
+    slides[current].classList.remove('active');
+    getPips()[current].classList.remove('active');
+
+    current = (idx + slides.length) % slides.length;
+
+    slides[current].classList.add('active');
+    getPips()[current].classList.add('active');
+
+    // Caption
+    const cap = slides[current].dataset.caption || '';
+    captionEl.classList.remove('visible');
+    setTimeout(() => {
+      captionEl.innerHTML = cap;
+      captionEl.classList.add('visible');
+    }, 200);
+
+    // Timeline
+    fill.style.width = ((current / (slides.length - 1)) * 100) + '%';
+  }
+
+  function next() { goTo(current + 1); }
+  function prev() { goTo(current - 1); }
+
+  function startPlay() {
+    playing = true;
+    btnPlay.textContent = 'Pause';
+    btnPlay.classList.add('active-btn');
+    timer = setInterval(next, interval);
+  }
+
+  function pausePlay() {
+    playing = false;
+    btnPlay.textContent = 'Play';
+    btnPlay.classList.remove('active-btn');
+    clearInterval(timer);
+  }
+
+  btnPlay.addEventListener('click', () => playing ? pausePlay() : startPlay());
+  btnPrev.addEventListener('click', () => { prev(); pausePlay(); });
+  btnNext.addEventListener('click', () => { next(); pausePlay(); });
+
+  btnSlower.addEventListener('click', () => {
+    speedIdx = Math.min(speedIdx + 1, speeds.length - 1);
+    interval = speeds[speedIdx];
+    speedLabel.textContent = (interval / 1000) + ' s';
+    if (playing) { pausePlay(); startPlay(); }
+  });
+
+  btnFaster.addEventListener('click', () => {
+    speedIdx = Math.max(speedIdx - 1, 0);
+    interval = speeds[speedIdx];
+    speedLabel.textContent = (interval / 1000) + ' s';
+    if (playing) { pausePlay(); startPlay(); }
+  });
+
+  // Initialize caption for first slide
+  goTo(0);
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { next(); pausePlay(); }
+    if (e.key === 'ArrowLeft')  { prev(); pausePlay(); }
+    if (e.key === ' ')          { playing ? pausePlay() : startPlay(); e.preventDefault(); }
+  });
+</script>
+</body>
+</html>
